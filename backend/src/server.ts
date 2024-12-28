@@ -20,47 +20,27 @@ interface ParkPoint {
   remainingTime?: number;
 }
 
-// Test verileri
-const testParkPoints: ParkPoint[] = [
-  {
-    id: '1',
-    coordinate: {
-      latitude: 41.0370013,
-      longitude: 28.9763369
-    },
-    duration: 60,
-    timestamp: Date.now() - (10 * 60 * 1000) // 10 dakika önce park edilmiş
-  },
-  {
-    id: '2',
-    coordinate: {
-      latitude: 41.0380013,
-      longitude: 28.9773369
-    },
-    duration: 30,
-    timestamp: Date.now() - (5 * 60 * 1000) // 5 dakika önce park edilmiş
-  },
-  {
-    id: '3',
-    coordinate: {
-      latitude: 41.0360013,
-      longitude: 28.9753369
-    },
-    duration: 120,
-    timestamp: Date.now() // Yeni park edilmiş
-  },
-  {
-    id: '4',
-    coordinate: {
-      latitude: 41.0375013,
-      longitude: 28.9768369
-    },
-    duration: 45,
-    timestamp: Date.now() - (40 * 60 * 1000) // 40 dakika önce park edilmiş
-  }
-];
+// Rastgele yakın noktalar oluştur
+const createNearbyPoints = (baseLocation: { latitude: number; longitude: number }) => {
+  const offsets = [
+    { lat: 0.001, lng: 0.001 },    // Sağ üst
+    { lat: -0.001, lng: 0.001 },   // Sağ alt
+    { lat: 0.001, lng: -0.001 },   // Sol üst
+    { lat: -0.001, lng: -0.001 },  // Sol alt
+  ];
 
-let parkPoints: ParkPoint[] = [...testParkPoints];
+  return offsets.map((offset, index) => ({
+    id: (index + 1).toString(),
+    coordinate: {
+      latitude: baseLocation.latitude + offset.lat,
+      longitude: baseLocation.longitude + offset.lng
+    },
+    duration: Math.floor(Math.random() * 60) + 30, // 30-90 dakika arası
+    timestamp: Date.now() - (Math.floor(Math.random() * 30) * 60 * 1000) // 0-30 dakika önce
+  }));
+};
+
+let parkPoints: ParkPoint[] = [];
 
 // Süresi dolmuş park noktalarını temizle
 const cleanExpiredParkPoints = () => {
@@ -96,6 +76,13 @@ app.post('/park-points', (req, res) => {
     duration: req.body.duration,
     timestamp: Date.now(),
   };
+
+  // İlk park noktası eklendiğinde test verilerini oluştur
+  if (parkPoints.length === 0) {
+    const testPoints = createNearbyPoints(req.body.coordinate);
+    parkPoints = [...testPoints];
+  }
+
   parkPoints.push(newParkPoint);
   res.status(201).json({
     ...newParkPoint,
