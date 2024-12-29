@@ -168,6 +168,87 @@ const TEST_ROUTES = {
   ]
 };
 
+// Yol tipine göre park yeri bulma olasılığını hesapla
+const calculateParkingProbability = (step: any): number => {
+  // Yolun tipi ve özellikleri
+  const roadType = step.html_instructions?.toLowerCase() || '';
+  const roadWidth = step.distance?.value || 0;
+  const timeOfDay = new Date().getHours();
+
+  let probability = 0.5; // Başlangıç olasılığı
+
+  // 1. Yol tipi faktörü
+  if (
+    roadType.includes('highway') || 
+    roadType.includes('otoyol') ||
+    roadType.includes('e-') ||
+    step.maneuver?.includes('roundabout')
+  ) {
+    // Ana yollarda park etmek genelde yasak
+    probability *= 0.1;
+  } else if (roadType.includes('bulvar') || roadType.includes('cadde')) {
+    // Ana caddelerde sınırlı park alanı
+    probability *= 0.3;
+  } else if (roadType.includes('sokak') || roadType.includes('street')) {
+    // Ara sokaklarda daha fazla park alanı
+    probability *= 1.2;
+  }
+
+  // 2. Yol genişliği faktörü
+  if (roadWidth > 25) {
+    // Çok geniş yollar genelde ana yollar, park yasak
+    probability *= 0.2;
+  } else if (roadWidth > 15) {
+    // Orta genişlikte yollar, sınırlı park
+    probability *= 0.6;
+  } else if (roadWidth > 8) {
+    // Normal genişlikte sokaklar, park mümkün
+    probability *= 1.0;
+  } else {
+    // Dar sokaklar, park zor
+    probability *= 0.4;
+  }
+
+  // 3. Zaman faktörü
+  if (timeOfDay >= 9 && timeOfDay <= 17) {
+    // Mesai saatleri - park yeri bulmak zor
+    probability *= 0.6;
+  } else if (timeOfDay >= 22 || timeOfDay <= 6) {
+    // Gece saatleri - park yeri bulmak kolay
+    probability *= 1.5;
+  }
+
+  // 4. Konum bazlı faktörler
+  if (roadType.includes('merkez') || roadType.includes('center')) {
+    // Merkezi bölgelerde park zor
+    probability *= 0.4;
+  } else if (roadType.includes('mahalle') || roadType.includes('residential')) {
+    // Mahalle aralarında park kolay
+    probability *= 1.3;
+  }
+
+  // 5. Yol özellikleri
+  if (step.maneuver?.includes('turn')) {
+    // Dönüşlerde ve kavşaklarda park zor
+    probability *= 0.5;
+  }
+
+  // Olasılığı 0-1 aralığına normalize et
+  probability = Math.max(0, Math.min(1, probability));
+
+  // Son olasılık değerlerini kategorize et
+  if (probability < 0.3) {
+    // Kırmızı - park yeri bulmak çok zor
+    return Math.random() * 0.3;
+  } else if (probability < 0.7) {
+    // Sarı - orta olasılık
+    return 0.3 + Math.random() * 0.4;
+  } else {
+    // Yeşil - park yeri bulmak kolay
+    return 0.7 + Math.random() * 0.3;
+  }
+};
+
 // Gerçek sokak verilerini al
 const getNearbyStreets = async (location: { latitude: number; longitude: number }): Promise<ParkingStreet[]> => {
   const streets: ParkingStreet[] = [];
@@ -196,39 +277,42 @@ const getNearbyStreets = async (location: { latitude: number; longitude: number 
       const data = await response.json();
       console.log(`Rota cevabı ${index}:`, {
         status: data.status,
-        routesCount: data.routes?.length,
-        firstRoute: data.routes?.[0]?.overview_polyline
+        routesCount: data.routes?.length
       });
 
       if (data.routes && data.routes.length > 0) {
         data.routes.forEach((route: any, routeIndex: number) => {
           if (route.legs && route.legs.length > 0) {
             const steps = route.legs[0].steps;
-            const coordinates: Array<{latitude: number; longitude: number}> = [];
             
             steps.forEach((step: any) => {
-              // Başlangıç noktasını ekle
-              coordinates.push({
-                latitude: step.start_location.lat,
-                longitude: step.start_location.lng
-              });
+              // Her adım için park olasılığını hesapla
+              const probability = calculateParkingProbability(step);
               
-              // Bitiş noktasını ekle
-              coordinates.push({
-                latitude: step.end_location.lat,
-                longitude: step.end_location.lng
+              // Başlangıç ve bitiş noktalarını kullan
+              const coordinates = [
+                {
+                  latitude: step.start_location.lat,
+                  longitude: step.start_location.lng
+                },
+                {
+                  latitude: step.end_location.lat,
+                  longitude: step.end_location.lng
+                }
+              ];
+
+              console.log(`Yol parçası oluşturuluyor:`, {
+                start: coordinates[0],
+                end: coordinates[1],
+                probability
+              });
+
+              streets.push({
+                id: `route-${index}-${routeIndex}-${Math.random()}`,
+                coordinates: coordinates,
+                parkingProbability: probability
               });
             });
-
-            console.log(`Rota ${index}-${routeIndex} koordinatları:`, coordinates.length, 'nokta');
-            
-            if (coordinates.length > 0) {
-              streets.push({
-                id: `route-${index}-${routeIndex}`,
-                coordinates: coordinates,
-                parkingProbability: Math.random()
-              });
-            }
           }
         });
       }
@@ -236,6 +320,14 @@ const getNearbyStreets = async (location: { latitude: number; longitude: number 
 
     await Promise.all(promises);
     console.log('Toplam oluşturulan sokak sayısı:', streets.length);
+    // İlk sokağın verilerini kontrol et
+    if (streets.length > 0) {
+      console.log('Örnek sokak verisi:', {
+        id: streets[0].id,
+        coordinates: streets[0].coordinates,
+        probability: streets[0].parkingProbability
+      });
+    }
   } catch (error) {
     console.error('Sokak verileri alınırken hata:', error);
   }

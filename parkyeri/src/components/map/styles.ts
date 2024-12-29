@@ -24,4 +24,36 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
   },
+  legend: {
+    position: 'absolute',
+    top: 50,
+    left: 16,
+    backgroundColor: 'white',
+    padding: 8,
+    borderRadius: 8,
+    flexDirection: 'column',
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  legendColor: {
+    width: 24,
+    height: 4,
+    borderRadius: 2,
+  },
+  legendText: {
+    fontSize: 12,
+    color: '#666',
+  },
 }); 
