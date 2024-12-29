@@ -2,6 +2,7 @@ const API_URL = 'http://192.168.1.103:3000';
 
 export interface ParkPoint {
   id: string;
+  userId: string;
   coordinate: {
     latitude: number;
     longitude: number;
@@ -9,6 +10,13 @@ export interface ParkPoint {
   duration: number;
   timestamp: number;
   remainingTime?: number;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  picture?: string;
 }
 
 export const getParkPoints = async (): Promise<ParkPoint[]> => {
@@ -53,9 +61,9 @@ export const addParkPoint = async (parkPoint: Omit<ParkPoint, 'id' | 'timestamp'
   }
 };
 
-export const deleteParkPoint = async (id: string): Promise<void> => {
+export const deleteParkPoint = async (id: string, userId: string): Promise<void> => {
   try {
-    const response = await fetch(`${API_URL}/park-points/${id}`, {
+    const response = await fetch(`${API_URL}/park-points/${id}?userId=${userId}`, {
       method: 'DELETE',
     });
     

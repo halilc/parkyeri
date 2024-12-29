@@ -1,8 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, Button, Modal, TextInput, Alert, Keyboard, TouchableOpacity, Platform } from 'react-native';
+import { StyleSheet, View, Text, Button, Modal, TextInput, Alert, Keyboard, TouchableOpacity, Platform, Image } from 'react-native';
 import MapView, { Marker, Callout } from 'react-native-maps';
 import * as Location from 'expo-location';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ParkPoint, getParkPoints, addParkPoint, deleteParkPoint } from './src/services/api';
+import LoginScreen from './src/screens/LoginScreen';
+
+const CarMarker = ({ remainingTime }: { remainingTime?: number }) => {
+  return (
+    <View style={styles.carMarkerContainer}>
+      <Text style={[styles.carEmoji, { color: remainingTime && remainingTime <= 5 ? '#ff4444' : '#4CAF50' }]}>
+        🚗
+      </Text>
+    </View>
+  );
+};
 
 const CalloutContent = ({ point, onDelete }: { point: ParkPoint; onDelete: () => void }) => {
   return (
@@ -11,17 +23,30 @@ const CalloutContent = ({ point, onDelete }: { point: ParkPoint; onDelete: () =>
       <Text style={styles.calloutText}>
         Kalan Süre: {point.remainingTime} dakika
       </Text>
-      <TouchableOpacity 
-        style={styles.deleteButton}
-        onPress={onDelete}
-      >
-        <Text style={styles.deleteButtonText}>Sil</Text>
-      </TouchableOpacity>
+      {Platform.select({
+        ios: (
+          <Button
+            title="Sil"
+            onPress={onDelete}
+            color="#ff4444"
+          />
+        ),
+        android: (
+          <TouchableOpacity 
+            style={styles.deleteButton}
+            onPress={onDelete}
+          >
+            <Text style={styles.deleteButtonText}>Sil</Text>
+          </TouchableOpacity>
+        ),
+      })}
     </View>
   );
 };
 
 export default function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState<any>(null);
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
@@ -29,6 +54,58 @@ export default function App() {
   const [duration, setDuration] = useState('');
   const [parkPoints, setParkPoints] = useState<ParkPoint[]>([]);
   const [mapRef, setMapRef] = useState<MapView | null>(null);
+
+  useEffect(() => {
+    checkLoginStatus();
+  }, []);
+
+  const checkLoginStatus = async () => {
+    try {
+      const userData = await AsyncStorage.getItem('user');
+      if (userData) {
+        setUser(JSON.parse(userData));
+        setIsLoggedIn(true);
+      }
+    } catch (error) {
+      console.error('Login status check error:', error);
+    }
+  };
+
+  const handleLogin = (userData: any) => {
+    setUser(userData);
+    setIsLoggedIn(true);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.removeItem('user');
+      setUser(null);
+      setIsLoggedIn(false);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      (async () => {
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Hata', 'Konum izni gerekli');
+          return;
+        }
+
+        let location = await Location.getCurrentPositionAsync({});
+        setLocation(location);
+        
+        await updateParkPoints();
+      })();
+
+      const interval = setInterval(updateParkPoints, 10000);
+
+      return () => clearInterval(interval);
+    }
+  }, [isLoggedIn]);
 
   const updateParkPoints = async () => {
     try {
@@ -39,27 +116,8 @@ export default function App() {
     }
   };
 
-  useEffect(() => {
-    (async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Hata', 'Konum izni gerekli');
-        return;
-      }
-
-      let location = await Location.getCurrentPositionAsync({});
-      setLocation(location);
-      
-      await updateParkPoints();
-    })();
-
-    const interval = setInterval(updateParkPoints, 10000);
-
-    return () => clearInterval(interval);
-  }, []);
-
   const handleAddParkPoint = async () => {
-    if (!location || !duration) return;
+    if (!location || !duration || !user) return;
 
     try {
       const newParkPoint = await addParkPoint({
@@ -68,6 +126,7 @@ export default function App() {
           longitude: location.coords.longitude,
         },
         duration: parseInt(duration),
+        userId: user.id,
       });
       setParkPoints([...parkPoints, newParkPoint]);
       setModalVisible(false);
@@ -79,10 +138,10 @@ export default function App() {
   };
 
   const handleDeleteParkPoint = async () => {
-    if (!selectedParkPoint) return;
+    if (!selectedParkPoint || !user) return;
 
     try {
-      await deleteParkPoint(selectedParkPoint.id);
+      await deleteParkPoint(selectedParkPoint.id, user.id);
       setParkPoints(parkPoints.filter(point => point.id !== selectedParkPoint.id));
       setDeleteModalVisible(false);
       setSelectedParkPoint(null);
@@ -104,6 +163,10 @@ export default function App() {
       Alert.alert('Hata', 'Konum alınamadı');
     }
   };
+
+  if (!isLoggedIn) {
+    return <LoginScreen onLogin={handleLogin} />;
+  }
 
   if (!location) {
     return <View style={styles.container}><Text>Konum yükleniyor...</Text></View>;
@@ -127,25 +190,37 @@ export default function App() {
           <Marker
             key={point.id}
             coordinate={point.coordinate}
-            pinColor={point.remainingTime && point.remainingTime <= 5 ? 'red' : '#4CAF50'}
+            tracksViewChanges={false}
           >
+            <CarMarker remainingTime={point.remainingTime} />
             <Callout
               onPress={() => {
-                setSelectedParkPoint(point);
-                setDeleteModalVisible(true);
+                if (point.userId === user.id) {
+                  setSelectedParkPoint(point);
+                  setDeleteModalVisible(true);
+                }
               }}
             >
               <CalloutContent 
                 point={point}
                 onDelete={() => {
-                  setSelectedParkPoint(point);
-                  setDeleteModalVisible(true);
+                  if (point.userId === user.id) {
+                    setSelectedParkPoint(point);
+                    setDeleteModalVisible(true);
+                  }
                 }}
               />
             </Callout>
           </Marker>
         ))}
       </MapView>
+
+      <TouchableOpacity 
+        style={styles.logoutButton}
+        onPress={handleLogout}
+      >
+        <Text style={styles.logoutButtonText}>Çıkış Yap</Text>
+      </TouchableOpacity>
 
       <View style={styles.buttonContainer}>
         <TouchableOpacity style={styles.locationButton} onPress={goToCurrentLocation}>
@@ -358,6 +433,34 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     color: 'white',
     fontSize: 14,
+    fontWeight: 'bold',
+  },
+  carMarkerContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  carEmoji: {
+    fontSize: 30,
+  },
+  logoutButton: {
+    position: 'absolute',
+    top: 40,
+    right: 16,
+    backgroundColor: 'white',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  logoutButtonText: {
+    color: '#ff4444',
     fontWeight: 'bold',
   },
 });
