@@ -1,27 +1,27 @@
-import React, { useEffect } from 'react';
-import { WebMapProps } from '../../types';
-import Constants from 'expo-constants';
+import React from 'react';
+import { StyleProp, ViewStyle } from 'react-native';
+import { Region } from '../../types';
+import { useMapContext } from '../../context/MapContext';
 
-declare global {
-  interface Window {
-    google: any;
-  }
+interface WebMapProps {
+  style?: StyleProp<ViewStyle>;
 }
 
-export const WebMap: React.FC<WebMapProps> = ({ children, region, style }) => {
-  useEffect(() => {
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${Constants.expoConfig?.extra?.googleMapsApiKey}`;
-    script.async = true;
-    document.head.appendChild(script);
+export const WebMap: React.FC<WebMapProps> = ({ style }) => {
+  const { region } = useMapContext();
 
-    script.onload = () => {
-      const map = new window.google.maps.Map(document.getElementById('map'), {
-        center: { lat: region.latitude, lng: region.longitude },
-        zoom: 15,
-      });
-    };
-  }, [region]);
-
-  return <div id="map" style={{ width: '100%', height: '100%', ...style }} />;
+  return (
+    <div style={{
+      width: '100%',
+      height: '100%',
+      backgroundColor: '#f0f0f0',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      ...(style as any),
+    }}>
+      <p>Web haritası henüz desteklenmiyor</p>
+      <p>Konum: {region.latitude}, {region.longitude}</p>
+    </div>
+  );
 }; 

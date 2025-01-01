@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, Platform, TouchableOpacity, Alert } from 'react-native';
 import MapView, { Marker, Callout, Polyline } from 'react-native-maps';
 import { useMapContext } from '../../context/MapContext';
 import { styles } from './styles';
 import { WebMap } from './WebMap';
-import { ParkPoint, ParkingStreet } from '../../types';
+import { ParkPoint, ParkingStreet, reportParkPoint } from '../../services/api';
 
 interface MapProps {
   mapRef: React.MutableRefObject<MapView | null>;
@@ -12,8 +12,61 @@ interface MapProps {
   onDeletePoint: (pointId: string) => void;
 }
 
+const CalloutContent: React.FC<{
+  point: ParkPoint;
+  onParked: () => void;
+  onWrongLocation: () => void;
+  onClose: () => void;
+}> = ({ point, onParked, onWrongLocation, onClose }) => {
+  return (
+    <View style={styles.callout}>
+      <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+        <Text style={styles.closeButtonText}>✕</Text>
+      </TouchableOpacity>
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity 
+          style={[styles.button, styles.successButton]} 
+          onPress={onParked}
+        >
+          <Text style={styles.buttonText}>Park Ettim</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.button, styles.dangerButton]}
+          onPress={onWrongLocation}
+        >
+          <Text style={styles.buttonText}>Park Yeri Yanlış</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
 export const Map: React.FC<MapProps> = ({ mapRef, onRegionChange, onDeletePoint }) => {
-  const { region, user, parkPoints, parkingStreets } = useMapContext();
+  const { region, parkPoints, setParkPoints, parkingStreets } = useMapContext();
+  const [selectedMarker, setSelectedMarker] = useState<string | null>(null);
+  const markerRefs = useRef<{ [key: string]: Marker | null }>({});
+
+  // Park noktası raporlama işleyicisi
+  const handleReportParkPoint = async (pointId: string, type: 'parked' | 'wrong_location') => {
+    try {
+      console.log('Rapor gönderiliyor:', pointId, type);
+      await reportParkPoint(pointId, type);
+      setParkPoints((prevPoints: ParkPoint[]) => prevPoints.filter((p: ParkPoint) => p.id !== pointId));
+      if (markerRefs.current[pointId]) {
+        markerRefs.current[pointId]?.hideCallout();
+      }
+      setSelectedMarker(null);
+      Alert.alert(
+        'Teşekkürler',
+        type === 'parked' 
+          ? 'Park ettiğiniz bilgisi kaydedildi.' 
+          : 'Geri bildiriminiz için teşekkürler.'
+      );
+    } catch (error) {
+      console.error('Park noktası raporlanırken hata:', error);
+      Alert.alert('Hata', 'İşlem sırasında bir hata oluştu');
+    }
+  };
 
   // Park olasılığına göre renk döndüren yardımcı fonksiyon
   const getProbabilityColor = (probability: number): string => {
@@ -29,27 +82,8 @@ export const Map: React.FC<MapProps> = ({ mapRef, onRegionChange, onDeletePoint 
     return 1; // Ara sokaklar için ince çizgi
   };
 
-  // Sokakları çizerken kontrol et
-  console.log('Çizilecek sokak sayısı:', parkingStreets.length);
-
   return Platform.select({
-    web: (
-      <WebMap region={region} style={styles.map}>
-        {parkPoints.map((point: ParkPoint) => (
-          <div
-            key={point.id}
-            style={{
-              position: 'absolute',
-              left: '50%',
-              top: '50%',
-              transform: 'translate(-50%, -50%)',
-            }}
-          >
-            🚗
-          </div>
-        ))}
-      </WebMap>
-    ),
+    web: <WebMap />,
     default: (
       <>
         <MapView
@@ -88,54 +122,60 @@ export const Map: React.FC<MapProps> = ({ mapRef, onRegionChange, onDeletePoint 
             <Marker
               key={point.id}
               coordinate={point.coordinate}
-              title={`${point.remainingTime} dakika kaldı`}
+              title={point.userId === 'system' ? 'Boş Park Yeri' : undefined}
               zIndex={3}
+              ref={(ref) => {
+                markerRefs.current[point.id] = ref;
+                if (point.id === selectedMarker) {
+                  ref?.showCallout();
+                }
+              }}
+              onPress={() => {
+                console.log('Marker tıklandı:', point.id);
+                setSelectedMarker(point.id);
+              }}
             >
               <View>
                 <Text style={{ 
                   fontSize: 24,
-                  opacity: point.userId === 'system' ? 0.6 : 1 // Boş park yerleri daha soluk görünsün
+                  opacity: point.userId === 'system' ? 0.6 : 1
                 }}>
                   {point.userId === 'system' ? '🅿️' : '🚗'}
                 </Text>
               </View>
-              <Callout>
-                <View style={styles.callout}>
-                  {point.userId === 'system' ? (
-                    <Text>Tahmini Boş Park Yeri{'\n'}Yaklaşık {point.remainingTime} dakika içinde boşalacak</Text>
-                  ) : (
-                    <>
-                      <Text>Kalan Süre: {point.remainingTime} dakika</Text>
-                      {point.userId === user?.id && (
-                        <TouchableOpacity
-                          style={styles.deleteButton}
-                          onPress={() => onDeletePoint(point.id)}
-                        >
-                          <Text style={styles.deleteButtonText}>Sil</Text>
-                        </TouchableOpacity>
-                      )}
-                    </>
-                  )}
+              <Callout
+                tooltip={true}
+                onPress={() => {
+                  console.log('Callout tıklandı');
+                  if (markerRefs.current[point.id]) {
+                    markerRefs.current[point.id]?.hideCallout();
+                  }
+                }}
+              >
+                <View style={styles.calloutContainer}>
+                  <CalloutContent
+                    point={point}
+                    onParked={() => {
+                      console.log('Park Ettim çağrıldı');
+                      handleReportParkPoint(point.id, 'parked');
+                    }}
+                    onWrongLocation={() => {
+                      console.log('Park Yeri Yanlış çağrıldı');
+                      handleReportParkPoint(point.id, 'wrong_location');
+                    }}
+                    onClose={() => {
+                      console.log('Dialog kapatıldı');
+                      if (markerRefs.current[point.id]) {
+                        markerRefs.current[point.id]?.hideCallout();
+                      }
+                      setSelectedMarker(null);
+                    }}
+                  />
                 </View>
               </Callout>
             </Marker>
           ))}
         </MapView>
-
-        <View style={styles.legend}>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendColor, { backgroundColor: '#ff4444' }]} />
-            <Text style={styles.legendText}>Düşük Olasılık</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendColor, { backgroundColor: '#ffbb33' }]} />
-            <Text style={styles.legendText}>Orta Olasılık</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendColor, { backgroundColor: '#00C851' }]} />
-            <Text style={styles.legendText}>Yüksek Olasılık</Text>
-          </View>
-        </View>
       </>
     ),
   });

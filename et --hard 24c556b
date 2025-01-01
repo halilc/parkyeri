@@ -1,0 +1,8 @@
+[33m9727bf7[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m feat: park yeri bulma olasılığı algoritması iyileştirildi
+[33mafa302e[m refactor: kod yapısı modüler hale getirildi
+[33m24c556b[m feat: API kullanımı optimize edildi ve harita iyileştirmeleri yapıldı
+[33m4ddb84a[m login
+[33m090cd19[m Test verileri dinamik olarak oluşturulacak şekilde güncellendi
+[33maf3009f[m Test amaçlı park noktaları eklendi
+[33m22cc0bb[m Frontend dosyaları eklendi
+[33m981f80e[m İlk commit: Park yeri uygulaması

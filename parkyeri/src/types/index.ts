@@ -13,9 +13,7 @@ export interface WebMapProps {
 
 export interface User {
   id: string;
-  email: string;
   name: string;
-  picture?: string;
 }
 
 export interface MapContextType {
@@ -31,21 +29,29 @@ export interface MapContextType {
 
 export interface ParkPoint {
   id: string;
-  userId: string;
   coordinate: {
     latitude: number;
     longitude: number;
   };
-  duration: number;
-  timestamp: number;
-  remainingTime?: number;
+  userId: string;
+  remainingTime: number;
+  parkedCount?: number;
+  wrongLocationCount?: number;
 }
 
 export interface ParkingStreet {
   id: string;
+  name: string;
   coordinates: Array<{
     latitude: number;
     longitude: number;
   }>;
   parkingProbability: number;
+}
+
+export interface Region {
+  latitude: number;
+  longitude: number;
+  latitudeDelta: number;
+  longitudeDelta: number;
 } 

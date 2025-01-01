@@ -10,9 +10,9 @@ export interface ParkPoint {
     latitude: number;
     longitude: number;
   };
-  duration: number;
-  timestamp: number;
-  remainingTime?: number;
+  remainingTime: number;
+  parkedCount?: number;
+  wrongLocationCount?: number;
 }
 
 export interface User {
@@ -24,6 +24,7 @@ export interface User {
 
 export interface ParkingStreet {
   id: string;
+  name: string;
   coordinates: Array<{
     latitude: number;
     longitude: number;
@@ -106,6 +107,7 @@ async function getNearbyStreets(location: { latitude: number; longitude: number 
           for (let i = 0; i < coordinates.length - 1; i++) {
             streets.push({
               id: `street-${element.id}-${i}`,
+              name: tags.name || 'Bilinmeyen Sokak',
               coordinates: [coordinates[i], coordinates[i + 1]],
               parkingProbability: probability
             });
@@ -140,9 +142,9 @@ function generateRandomParkPoints(streets: ParkingStreet[]): ParkPoint[] {
           latitude: coordinates[0].latitude + (coordinates[1].latitude - coordinates[0].latitude) * t,
           longitude: coordinates[0].longitude + (coordinates[1].longitude - coordinates[0].longitude) * t
         },
-        duration: Math.floor(Math.random() * 120) + 30, // 30-150 dakika arası
-        timestamp: now,
-        remainingTime: Math.floor(Math.random() * 60) + 10 // 10-70 dakika arası
+        remainingTime: Math.floor(Math.random() * 60) + 10, // 10-70 dakika arası
+        parkedCount: 0,
+        wrongLocationCount: 0
       };
       points.push(point);
     }
@@ -174,28 +176,71 @@ export const getParkPoints = async (): Promise<ParkPoint[]> => {
   }
 };
 
-// Son harita bölgesini sakla
+// Son harita bölgesini ve sokakları sakla
 let lastRegion: { latitude: number; longitude: number } | null = null;
+let cachedStreets: ParkingStreet[] | null = null;
+const CACHE_DISTANCE = 0.01; // Yaklaşık 1km
+
+// İki nokta arasındaki mesafeyi hesapla
+const calculateDistance = (
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number => {
+  const R = 6371; // Dünya'nın yarıçapı (km)
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
 
 export const getParkingStreets = async (params: GetParkingStreetsParams): Promise<ParkingStreet[]> => {
   try {
     const { latitude, longitude } = params;
-    // Son bölgeyi güncelle
-    lastRegion = { latitude, longitude };
+
+    // Eğer önbellekte veri varsa ve yeni konum yakınsa, önbellekten döndür
+    if (lastRegion && cachedStreets) {
+      const distance = calculateDistance(
+        latitude,
+        longitude,
+        lastRegion.latitude,
+        lastRegion.longitude
+      );
+      if (distance < CACHE_DISTANCE) {
+        return cachedStreets;
+      }
+    }
+
+    // Yeni konum için sokakları al
     console.log('Gerçek sokak verileri alınıyor...');
-    return await getNearbyStreets({ latitude, longitude });
+    const streets = await getNearbyStreets({ latitude, longitude });
+    
+    // Önbelleğe al
+    lastRegion = { latitude, longitude };
+    cachedStreets = streets;
+    
+    return streets;
   } catch (error) {
     console.error('getParkingStreets error:', error);
+    // Hata durumunda önbellekteki verileri döndür
+    if (cachedStreets) {
+      return cachedStreets;
+    }
     throw error;
   }
 };
 
-export const addParkPoint = async (parkPoint: Omit<ParkPoint, 'id' | 'timestamp' | 'remainingTime'>): Promise<ParkPoint> => {
+export const addParkPoint = async (parkPoint: Omit<ParkPoint, 'id'>): Promise<ParkPoint> => {
   const newPoint: ParkPoint = {
     ...parkPoint,
     id: Math.random().toString(36).substring(7),
-    timestamp: Date.now(),
-    remainingTime: parkPoint.duration
   };
   testParkPoints.push(newPoint);
   return newPoint;
@@ -203,4 +248,23 @@ export const addParkPoint = async (parkPoint: Omit<ParkPoint, 'id' | 'timestamp'
 
 export const deleteParkPoint = async (id: string, userId: string): Promise<void> => {
   testParkPoints = testParkPoints.filter(p => p.id !== id);
+};
+
+export const reportParkPoint = async (pointId: string, type: 'parked' | 'wrong_location'): Promise<void> => {
+  try {
+    const response = await fetch(`${API_URL}/parkpoints/${pointId}/report`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ type }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Park noktası raporlanırken hata oluştu');
+    }
+  } catch (error) {
+    console.error('Park noktası raporlama hatası:', error);
+    throw error;
+  }
 }; 

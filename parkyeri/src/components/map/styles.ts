@@ -5,34 +5,16 @@ export const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  calloutContainer: {
+    backgroundColor: 'transparent',
+    padding: 0,
+    margin: 0,
+  },
   callout: {
     padding: 15,
-    minWidth: 150,
+    minWidth: 200,
     backgroundColor: 'white',
-    borderRadius: 6,
-  },
-  deleteButton: {
-    backgroundColor: '#ff4444',
-    padding: 8,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginTop: 4,
-    width: '100%',
-  },
-  deleteButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  legend: {
-    position: 'absolute',
-    top: 50,
-    left: 16,
-    backgroundColor: 'white',
-    padding: 8,
     borderRadius: 8,
-    flexDirection: 'column',
-    gap: 8,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -42,18 +24,45 @@ export const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  legendColor: {
+  closeButton: {
+    position: 'absolute',
+    right: 5,
+    top: 5,
     width: 24,
-    height: 4,
-    borderRadius: 2,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
   },
-  legendText: {
-    fontSize: 12,
+  closeButtonText: {
+    fontSize: 16,
     color: '#666',
+    fontWeight: 'bold',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    marginBottom: 5,
+    gap: 10,
+  },
+  button: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 4,
+    alignItems: 'center',
+  },
+  successButton: {
+    backgroundColor: '#4CAF50',
+  },
+  dangerButton: {
+    backgroundColor: '#f44336',
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 }); 
