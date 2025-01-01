@@ -122,22 +122,72 @@ async function getNearbyStreets(location: { latitude: number; longitude: number 
   }
 }
 
+// Rastgele park yerleri oluştur
+function generateRandomParkPoints(streets: ParkingStreet[]): ParkPoint[] {
+  const points: ParkPoint[] = [];
+  const now = Date.now();
+
+  // Her sokak için %30 olasılıkla park yeri oluştur
+  streets.forEach(street => {
+    if (Math.random() < 0.3) {
+      const coordinates = street.coordinates;
+      // Sokağın başlangıç ve bitiş noktaları arasında rastgele bir nokta seç
+      const t = Math.random(); // 0 ile 1 arasında
+      const point: ParkPoint = {
+        id: `empty-${Math.random().toString(36).substring(7)}`,
+        userId: 'system',
+        coordinate: {
+          latitude: coordinates[0].latitude + (coordinates[1].latitude - coordinates[0].latitude) * t,
+          longitude: coordinates[0].longitude + (coordinates[1].longitude - coordinates[0].longitude) * t
+        },
+        duration: Math.floor(Math.random() * 120) + 30, // 30-150 dakika arası
+        timestamp: now,
+        remainingTime: Math.floor(Math.random() * 60) + 10 // 10-70 dakika arası
+      };
+      points.push(point);
+    }
+  });
+
+  return points;
+}
+
+// Test park noktaları listesi
+let testParkPoints: ParkPoint[] = [];
+
+export const getParkPoints = async (): Promise<ParkPoint[]> => {
+  try {
+    // Mevcut park noktalarını al
+    const userPoints = testParkPoints;
+
+    // Sokakları al ve rastgele boş park yerleri oluştur
+    const streets = await getNearbyStreets({
+      latitude: lastRegion?.latitude || 41.0082,
+      longitude: lastRegion?.longitude || 28.9784
+    });
+    const emptyPoints = generateRandomParkPoints(streets);
+
+    // Kullanıcı park noktaları ve boş park yerlerini birleştir
+    return [...userPoints, ...emptyPoints];
+  } catch (error) {
+    console.error('Park noktaları alınırken hata:', error);
+    return testParkPoints;
+  }
+};
+
+// Son harita bölgesini sakla
+let lastRegion: { latitude: number; longitude: number } | null = null;
+
 export const getParkingStreets = async (params: GetParkingStreetsParams): Promise<ParkingStreet[]> => {
   try {
     const { latitude, longitude } = params;
+    // Son bölgeyi güncelle
+    lastRegion = { latitude, longitude };
     console.log('Gerçek sokak verileri alınıyor...');
     return await getNearbyStreets({ latitude, longitude });
   } catch (error) {
     console.error('getParkingStreets error:', error);
     throw error;
   }
-};
-
-// Test park noktaları listesi
-let testParkPoints: ParkPoint[] = [];
-
-export const getParkPoints = async (): Promise<ParkPoint[]> => {
-  return testParkPoints;
 };
 
 export const addParkPoint = async (parkPoint: Omit<ParkPoint, 'id' | 'timestamp' | 'remainingTime'>): Promise<ParkPoint> => {

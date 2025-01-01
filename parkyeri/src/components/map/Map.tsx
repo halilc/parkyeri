@@ -92,18 +92,29 @@ export const Map: React.FC<MapProps> = ({ mapRef, onRegionChange, onDeletePoint 
               zIndex={3}
             >
               <View>
-                <Text style={{ fontSize: 24 }}>🚗</Text>
+                <Text style={{ 
+                  fontSize: 24,
+                  opacity: point.userId === 'system' ? 0.6 : 1 // Boş park yerleri daha soluk görünsün
+                }}>
+                  {point.userId === 'system' ? '🅿️' : '🚗'}
+                </Text>
               </View>
               <Callout>
                 <View style={styles.callout}>
-                  <Text>Kalan Süre: {point.remainingTime} dakika</Text>
-                  {point.userId === user?.id && (
-                    <TouchableOpacity
-                      style={styles.deleteButton}
-                      onPress={() => onDeletePoint(point.id)}
-                    >
-                      <Text style={styles.deleteButtonText}>Sil</Text>
-                    </TouchableOpacity>
+                  {point.userId === 'system' ? (
+                    <Text>Tahmini Boş Park Yeri{'\n'}Yaklaşık {point.remainingTime} dakika içinde boşalacak</Text>
+                  ) : (
+                    <>
+                      <Text>Kalan Süre: {point.remainingTime} dakika</Text>
+                      {point.userId === user?.id && (
+                        <TouchableOpacity
+                          style={styles.deleteButton}
+                          onPress={() => onDeletePoint(point.id)}
+                        >
+                          <Text style={styles.deleteButtonText}>Sil</Text>
+                        </TouchableOpacity>
+                      )}
+                    </>
                   )}
                 </View>
               </Callout>
