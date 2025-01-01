@@ -22,6 +22,13 @@ export const Map: React.FC<MapProps> = ({ mapRef, onRegionChange, onDeletePoint 
     return '#00C851'; // Yeşil - Ara sokaklar ve sakin bölgeler
   };
 
+  // Sokağın büyüklüğüne göre çizgi kalınlığını belirle
+  const getStrokeWidth = (probability: number): number => {
+    if (probability < 0.3) return 2; // Ana yollar için daha kalın
+    if (probability < 0.7) return 1.5; // Orta büyüklükteki sokaklar için orta kalınlık
+    return 1; // Ara sokaklar için ince çizgi
+  };
+
   // Sokakları çizerken kontrol et
   console.log('Çizilecek sokak sayısı:', parkingStreets.length);
 
@@ -52,12 +59,37 @@ export const Map: React.FC<MapProps> = ({ mapRef, onRegionChange, onDeletePoint 
           onRegionChangeComplete={onRegionChange}
           showsUserLocation={true}
           showsMyLocationButton={false}
+          mapType="standard"
+          rotateEnabled={false}
         >
+          {parkingStreets.map((street: ParkingStreet) => (
+            <Polyline
+              key={street.id}
+              coordinates={street.coordinates}
+              strokeColor={getProbabilityColor(street.parkingProbability)}
+              strokeWidth={getStrokeWidth(street.parkingProbability)}
+              lineDashPattern={[3, 3]}
+              zIndex={1}
+              tappable={true}
+              onPress={() => {
+                const probability = Math.round(street.parkingProbability * 100);
+                Alert.alert(
+                  'Park Olasılığı',
+                  `Bu yolda park yeri bulma olasılığı: %${probability}\n\n` +
+                  (probability < 30 ? 'Ana yol veya işlek cadde' :
+                   probability < 70 ? 'Orta büyüklükte sokak' :
+                   'Ara sokak veya sakin bölge')
+                );
+              }}
+            />
+          ))}
+
           {parkPoints.map((point: ParkPoint) => (
             <Marker
               key={point.id}
               coordinate={point.coordinate}
               title={`${point.remainingTime} dakika kaldı`}
+              zIndex={3}
             >
               <View>
                 <Text style={{ fontSize: 24 }}>🚗</Text>
@@ -77,36 +109,6 @@ export const Map: React.FC<MapProps> = ({ mapRef, onRegionChange, onDeletePoint 
               </Callout>
             </Marker>
           ))}
-
-          {parkingStreets.map((street: ParkingStreet) => {
-            console.log('Sokak çiziliyor:', {
-              id: street.id,
-              coordinates: street.coordinates,
-              probability: street.parkingProbability
-            });
-            
-            return (
-              <Polyline
-                key={street.id}
-                coordinates={street.coordinates}
-                strokeColor={getProbabilityColor(street.parkingProbability)}
-                strokeWidth={8}
-                lineDashPattern={[10, 5]}
-                zIndex={1}
-                tappable={true}
-                onPress={() => {
-                  const probability = Math.round(street.parkingProbability * 100);
-                  Alert.alert(
-                    'Park Olasılığı',
-                    `Bu yolda park yeri bulma olasılığı: %${probability}\n\n` +
-                    (probability < 30 ? 'Ana yol veya işlek cadde' :
-                     probability < 70 ? 'Orta büyüklükte sokak' :
-                     'Ara sokak veya sakin bölge')
-                  );
-                }}
-              />
-            );
-          })}
         </MapView>
 
         <View style={styles.legend}>

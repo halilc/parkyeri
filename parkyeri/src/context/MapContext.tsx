@@ -4,6 +4,11 @@ import { MapContextType, ParkPoint, ParkingStreet, User } from '../types';
 
 const MapContext = createContext<MapContextType | undefined>(undefined);
 
+const defaultUser: User = {
+  id: 'default-user',
+  name: 'Misafir Kullanıcı',
+};
+
 export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [region, setRegion] = useState<Region>({
     latitude: 37.78825,
@@ -13,7 +18,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
   const [parkPoints, setParkPoints] = useState<ParkPoint[]>([]);
   const [parkingStreets, setParkingStreets] = useState<ParkingStreet[]>([]);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(defaultUser);
 
   return (
     <MapContext.Provider

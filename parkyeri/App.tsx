@@ -23,42 +23,39 @@ const AppContent = () => {
   const [duration, setDuration] = React.useState('');
 
   useEffect(() => {
-    if (user) {
-      (async () => {
-        let { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          Alert.alert('Hata', 'Konum izni gerekli');
-          return;
-        }
+    (async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Hata', 'Konum izni gerekli');
+        return;
+      }
 
-        let location = await Location.getCurrentPositionAsync({});
-        const newRegion = {
+      let location = await Location.getCurrentPositionAsync({});
+      const newRegion = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      };
+      setRegion(newRegion);
+      mapRef.current?.animateToRegion(newRegion, 1000);
+      
+      try {
+        const streets = await getParkingStreets({
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
-          latitudeDelta: 0.005,
-          longitudeDelta: 0.005,
-        };
-        setRegion(newRegion);
-        mapRef.current?.animateToRegion(newRegion, 1000);
-        
-        // Sadece ilk girişte park noktalarını ve sokakları getir
-        try {
-          const [points, streets] = await Promise.all([
-            getParkPoints(),
-            getParkingStreets({
-              latitude: location.coords.latitude,
-              longitude: location.coords.longitude,
-            })
-          ]);
-          setParkPoints(points);
-          setParkingStreets(streets);
-          console.log('İlk veri yüklendi:', streets.length, 'sokak bulundu');
-        } catch (error) {
-          console.error('Veri alınırken hata:', error);
-        }
-      })();
-    }
-  }, [user]);
+        });
+        console.log('Sokak verileri alındı:', streets.length);
+        setParkingStreets(streets);
+
+        const points = await getParkPoints();
+        setParkPoints(points);
+      } catch (error) {
+        console.error('Veri alınırken hata:', error);
+        Alert.alert('Hata', 'Sokak verileri alınırken bir hata oluştu');
+      }
+    })();
+  }, []);
 
   const handleLogin = (userData: any) => {
     setUser(userData);
@@ -117,8 +114,18 @@ const AppContent = () => {
     }
   };
 
-  const handleRegionChange = (newRegion: Region) => {
+  const handleRegionChange = async (newRegion: Region) => {
     setRegion(newRegion);
+    
+    try {
+      const streets = await getParkingStreets({
+        latitude: newRegion.latitude,
+        longitude: newRegion.longitude,
+      });
+      setParkingStreets(streets);
+    } catch (error) {
+      console.error('Sokak verileri güncellenirken hata:', error);
+    }
   };
 
   return (
