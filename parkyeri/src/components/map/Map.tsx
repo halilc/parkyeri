@@ -101,24 +101,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   calloutContainer: {
-    width: 250,
+    width: 200,
+    height: 'auto',
     backgroundColor: 'white',
     borderRadius: 8,
-    padding: 0,
+    padding: 10,
   },
   callout: {
     width: '100%',
-    backgroundColor: 'white',
-    borderRadius: 8,
-    padding: 15,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  calloutContent: {
-    marginTop: 20,
+    alignItems: 'center',
   },
   closeButton: {
     position: 'absolute',
@@ -132,7 +123,7 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   streetName: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
     marginBottom: 5,
   },
@@ -142,12 +133,16 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   buttonContainer: {
-    gap: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 10,
   },
   button: {
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
+    padding: 8,
+    borderRadius: 4,
+    minWidth: 80,
+    marginHorizontal: 4,
   },
   successButton: {
     backgroundColor: '#4CAF50',
@@ -157,8 +152,8 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: 'white',
-    fontSize: 14,
-    fontWeight: 'bold',
+    textAlign: 'center',
+    fontSize: 12,
   },
   refreshButton: {
     position: 'absolute',
@@ -398,29 +393,38 @@ export const Map: React.FC<MapProps> = ({ mapRef, onRegionChange, onDeletePoint 
           console.log('Marker tıklandı:', point);
           setSelectedMarker(point.id);
         }}
+        ref={(ref) => {
+          if (ref) {
+            markerRefs.current[point.id] = ref;
+          }
+        }}
       >
         <View style={styles.markerContainer}>
           <Text style={{ fontSize: 30 }}>🅿️</Text>
         </View>
-        {selectedMarker === point.id && (
-          <Callout
-            style={styles.calloutContainer}
-            onPress={e => e.stopPropagation()}
-          >
-            <ParkDialog
-              point={point}
-              onClose={() => setSelectedMarker(null)}
-              onParked={(pointId) => {
-                handleReportParkPoint(pointId, 'parked');
-                setSelectedMarker(null);
-              }}
-              onWrongLocation={(pointId) => {
-                handleReportParkPoint(pointId, 'wrong_location');
-                setSelectedMarker(null);
-              }}
-            />
-          </Callout>
-        )}
+        <Callout
+          style={styles.calloutContainer}
+          onPress={() => console.log('Callout tıklandı')}
+        >
+          <View style={styles.callout}>
+            <Text style={styles.streetName}>{point.streetName || 'Bilinmeyen Sokak'}</Text>
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity 
+                style={[styles.button, styles.successButton]} 
+                onPress={() => handleReportParkPoint(point.id, 'parked')}
+              >
+                <Text style={styles.buttonText}>Park Ettim</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.button, styles.dangerButton]}
+                onPress={() => handleReportParkPoint(point.id, 'wrong_location')}
+              >
+                <Text style={styles.buttonText}>Park Yeri Yanlış</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Callout>
       </Marker>
     );
   };
