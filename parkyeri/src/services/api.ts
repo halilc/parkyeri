@@ -10,6 +10,7 @@ export interface ParkPoint {
     latitude: number;
     longitude: number;
   };
+  streetName: string;
   remainingTime: number;
   parkedCount?: number;
   wrongLocationCount?: number;
@@ -39,7 +40,7 @@ export interface GetParkingStreetsParams {
 }
 
 // Gerçek sokak verilerini al
-async function getNearbyStreets(location: { latitude: number; longitude: number }): Promise<ParkingStreet[]> {
+export async function getNearbyStreets(location: { latitude: number; longitude: number }): Promise<ParkingStreet[]> {
   const streets: ParkingStreet[] = [];
   const radius = 0.01; // 1km yarıçap
 
@@ -142,6 +143,7 @@ function generateRandomParkPoints(streets: ParkingStreet[]): ParkPoint[] {
           latitude: coordinates[0].latitude + (coordinates[1].latitude - coordinates[0].latitude) * t,
           longitude: coordinates[0].longitude + (coordinates[1].longitude - coordinates[0].longitude) * t
         },
+        streetName: street.name || 'Bilinmeyen Sokak',
         remainingTime: Math.floor(Math.random() * 60) + 10, // 10-70 dakika arası
         parkedCount: 0,
         wrongLocationCount: 0
@@ -150,26 +152,34 @@ function generateRandomParkPoints(streets: ParkingStreet[]): ParkPoint[] {
     }
   });
 
+  console.log(`${points.length} adet rastgele park noktası oluşturuldu`);
   return points;
 }
 
 // Test park noktaları listesi
 let testParkPoints: ParkPoint[] = [];
 
-export const getParkPoints = async (): Promise<ParkPoint[]> => {
+export const getParkPoints = async (region?: { latitude: number; longitude: number }): Promise<ParkPoint[]> => {
   try {
     // Mevcut park noktalarını al
     const userPoints = testParkPoints;
+    console.log('Mevcut kullanıcı park noktaları:', userPoints);
 
     // Sokakları al ve rastgele boş park yerleri oluştur
-    const streets = await getNearbyStreets({
-      latitude: lastRegion?.latitude || 41.0082,
-      longitude: lastRegion?.longitude || 28.9784
-    });
+    const currentRegion = region || lastRegion || { latitude: 41.0082, longitude: 28.9784 };
+    lastRegion = currentRegion; // lastRegion'u güncelle
+    
+    const streets = await getNearbyStreets(currentRegion);
+    console.log(`${streets.length} sokak bulundu, rastgele park noktaları oluşturuluyor...`);
+    
     const emptyPoints = generateRandomParkPoints(streets);
+    console.log(`${emptyPoints.length} adet boş park noktası oluşturuldu`);
 
     // Kullanıcı park noktaları ve boş park yerlerini birleştir
-    return [...userPoints, ...emptyPoints];
+    const allPoints = [...userPoints, ...emptyPoints];
+    console.log(`Toplam ${allPoints.length} park noktası döndürülüyor`);
+    
+    return allPoints;
   } catch (error) {
     console.error('Park noktaları alınırken hata:', error);
     return testParkPoints;
@@ -179,7 +189,9 @@ export const getParkPoints = async (): Promise<ParkPoint[]> => {
 // Son harita bölgesini ve sokakları sakla
 let lastRegion: { latitude: number; longitude: number } | null = null;
 let cachedStreets: ParkingStreet[] | null = null;
+let lastFetchTime: number | null = null;
 const CACHE_DISTANCE = 0.01; // Yaklaşık 1km
+const CACHE_DURATION = 10 * 60 * 1000; // 10 dakika (milisaniye cinsinden)
 
 // İki nokta arasındaki mesafeyi hesapla
 const calculateDistance = (
@@ -204,16 +216,21 @@ const calculateDistance = (
 export const getParkingStreets = async (params: GetParkingStreetsParams): Promise<ParkingStreet[]> => {
   try {
     const { latitude, longitude } = params;
+    const now = Date.now();
 
-    // Eğer önbellekte veri varsa ve yeni konum yakınsa, önbellekten döndür
-    if (lastRegion && cachedStreets) {
+    // Önbellekteki verinin geçerli olup olmadığını kontrol et
+    if (lastRegion && cachedStreets && lastFetchTime) {
       const distance = calculateDistance(
         latitude,
         longitude,
         lastRegion.latitude,
         lastRegion.longitude
       );
-      if (distance < CACHE_DISTANCE) {
+      const timeDiff = now - lastFetchTime;
+
+      // Eğer konum yakınsa ve son güncellemenin üzerinden 10 dakika geçmediyse, önbellekten döndür
+      if (distance < CACHE_DISTANCE && timeDiff < CACHE_DURATION) {
+        console.log('Önbellekteki sokak verileri kullanılıyor...');
         return cachedStreets;
       }
     }
@@ -225,12 +242,14 @@ export const getParkingStreets = async (params: GetParkingStreetsParams): Promis
     // Önbelleğe al
     lastRegion = { latitude, longitude };
     cachedStreets = streets;
+    lastFetchTime = now;
     
     return streets;
   } catch (error) {
     console.error('getParkingStreets error:', error);
     // Hata durumunda önbellekteki verileri döndür
     if (cachedStreets) {
+      console.log('Hata oluştu, önbellekteki veriler kullanılıyor...');
       return cachedStreets;
     }
     throw error;
