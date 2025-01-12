@@ -3,11 +3,13 @@ import { StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import MapView from 'react-native-maps';
-import { MapProvider } from './src/context/MapContext';
+import { MapProvider, useMapContext } from './src/context/MapContext';
 import { Map } from './src/components/map/Map';
+import { LoginScreen } from './src/components/auth/LoginScreen';
 
-export default function App() {
+const AppContent = () => {
   const mapRef = useRef<MapView | null>(null);
+  const { user } = useMapContext();
 
   const handleRegionChange = (region: any) => {
     // Harita bölgesi değiştiğinde yapılacak işlemler
@@ -17,15 +19,27 @@ export default function App() {
     // Park noktası silindiğinde yapılacak işlemler
   };
 
+  if (!user) {
+    return <LoginScreen />;
+  }
+
+  return (
+    <>
+      <Map
+        mapRef={mapRef}
+        onRegionChange={handleRegionChange}
+        onDeletePoint={handleDeletePoint}
+      />
+      <StatusBar style="auto" />
+    </>
+  );
+};
+
+export default function App() {
   return (
     <SafeAreaProvider>
       <MapProvider>
-        <Map
-          mapRef={mapRef}
-          onRegionChange={handleRegionChange}
-          onDeletePoint={handleDeletePoint}
-        />
-        <StatusBar style="auto" />
+        <AppContent />
       </MapProvider>
     </SafeAreaProvider>
   );

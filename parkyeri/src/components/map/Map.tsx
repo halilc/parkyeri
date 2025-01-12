@@ -235,13 +235,53 @@ const styles = StyleSheet.create({
     width: '80%',
     alignItems: 'center',
   },
+  menuButton: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    backgroundColor: 'white',
+    padding: 10,
+    borderRadius: 8,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  menuButtonText: {
+    fontSize: 20,
+  },
+  menuModal: {
+    position: 'absolute',
+    top: 100,
+    left: 20,
+    backgroundColor: 'white',
+    padding: 15,
+    borderRadius: 8,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  menuItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  menuItemText: {
+    fontSize: 16,
+    color: '#333',
+  },
 });
 
 export const Map: React.FC<MapProps> = ({ mapRef, onRegionChange, onDeletePoint }) => {
-  const { region, setRegion, parkPoints, setParkPoints: updateParkPoints, parkingStreets, setParkingStreets } = useMapContext();
+  const { region, setRegion, parkPoints, setParkPoints: updateParkPoints, parkingStreets, setParkingStreets, user, setUser } = useMapContext();
   const [selectedPoint, setSelectedPoint] = useState<ParkPoint | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [currentRegion, setCurrentRegion] = useState(region);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const markerRefs = useRef<{ [key: string]: any }>({});
 
   // Sokak verilerini yenile
@@ -522,6 +562,47 @@ export const Map: React.FC<MapProps> = ({ mapRef, onRegionChange, onDeletePoint 
       >
         <Text style={styles.locationButtonText}>📍</Text>
       </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.menuButton}
+        onPress={() => setIsMenuOpen(!isMenuOpen)}
+      >
+        <Text style={styles.menuButtonText}>☰</Text>
+      </TouchableOpacity>
+
+      {isMenuOpen && (
+        <View style={styles.menuModal}>
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => {
+              Alert.alert('Profil', `Kullanıcı: ${user?.name}`);
+              setIsMenuOpen(false);
+            }}
+          >
+            <Text style={styles.menuItemText}>Profil</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => {
+              Alert.alert('Ayarlar', 'Ayarlar ekranı yakında eklenecek');
+              setIsMenuOpen(false);
+            }}
+          >
+            <Text style={styles.menuItemText}>Ayarlar</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => {
+              setUser(null);
+              setIsMenuOpen(false);
+            }}
+          >
+            <Text style={styles.menuItemText}>Çıkış Yap</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </>
   );
 }; 
