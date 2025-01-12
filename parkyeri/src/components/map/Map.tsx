@@ -397,7 +397,7 @@ export const Map: React.FC<MapProps> = ({ mapRef, onRegionChange, onDeletePoint 
   const handleReportParkPoint = async (pointId: string, type: 'parked' | 'wrong_location') => {
     try {
       console.log('Rapor gönderiliyor:', { pointId, type });
-      await reportParkPoint(pointId, type);
+      const updatedPoints = await reportParkPoint(pointId, type);
       
       // Modal'ı kapat
       setSelectedPoint(null);
@@ -411,11 +411,7 @@ export const Map: React.FC<MapProps> = ({ mapRef, onRegionChange, onDeletePoint 
       );
 
       // Park noktalarını güncelle
-      const points = await getParkPoints({
-        latitude: currentRegion.latitude,
-        longitude: currentRegion.longitude,
-      });
-      updateParkPoints(points);
+      updateParkPoints(updatedPoints);
     } catch (error) {
       console.error('Park noktası raporlanırken hata:', error);
       Alert.alert('Hata', 'İşlem sırasında bir hata oluştu');

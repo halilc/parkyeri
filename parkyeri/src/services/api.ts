@@ -270,7 +270,7 @@ export const deleteParkPoint = async (id: string, userId: string): Promise<void>
   testParkPoints = testParkPoints.filter(p => p.id !== id);
 };
 
-export const reportParkPoint = async (pointId: string, type: 'parked' | 'wrong_location'): Promise<void> => {
+export const reportParkPoint = async (pointId: string, type: 'parked' | 'wrong_location'): Promise<ParkPoint[]> => {
   try {
     // Noktayı bul
     const point = parkPoints.find(p => p.id === pointId);
@@ -321,6 +321,9 @@ export const reportParkPoint = async (pointId: string, type: 'parked' | 'wrong_l
     parkPoints = parkPoints.filter(p => p.id !== pointId);
     testParkPoints = testParkPoints.filter(p => p.id !== pointId);
     console.log('Nokta listeden kaldırıldı. Kalan noktalar:', parkPoints.length);
+
+    // Güncellenmiş park noktalarını döndür
+    return parkPoints;
   } catch (error) {
     console.error('Park noktası raporlama hatası:', error);
     throw error;
