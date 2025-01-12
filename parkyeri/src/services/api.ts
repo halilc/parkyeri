@@ -64,11 +64,11 @@ export async function getNearbyStreets(location: { latitude: number; longitude: 
       },
       body: `data=${encodeURIComponent(query)}`
     });
-
+    
     if (!response.ok) {
       throw new Error('Sokak verileri alınamadı');
     }
-
+    
     const data = await response.json();
     const nodes = new Map();
 
@@ -158,6 +158,7 @@ function generateRandomParkPoints(streets: ParkingStreet[]): ParkPoint[] {
 
 // Test park noktaları listesi
 let testParkPoints: ParkPoint[] = [];
+let parkPoints: ParkPoint[] = [];
 
 export const getParkPoints = async (region?: { latitude: number; longitude: number }): Promise<ParkPoint[]> => {
   try {
@@ -176,10 +177,10 @@ export const getParkPoints = async (region?: { latitude: number; longitude: numb
     console.log(`${emptyPoints.length} adet boş park noktası oluşturuldu`);
 
     // Kullanıcı park noktaları ve boş park yerlerini birleştir
-    const allPoints = [...userPoints, ...emptyPoints];
-    console.log(`Toplam ${allPoints.length} park noktası döndürülüyor`);
+    parkPoints = [...userPoints, ...emptyPoints];
+    console.log(`Toplam ${parkPoints.length} park noktası döndürülüyor`);
     
-    return allPoints;
+    return parkPoints;
   } catch (error) {
     console.error('Park noktaları alınırken hata:', error);
     return testParkPoints;
@@ -271,17 +272,55 @@ export const deleteParkPoint = async (id: string, userId: string): Promise<void>
 
 export const reportParkPoint = async (pointId: string, type: 'parked' | 'wrong_location'): Promise<void> => {
   try {
-    const response = await fetch(`${API_URL}/parkpoints/${pointId}/report`, {
+    // Noktayı bul
+    const point = parkPoints.find(p => p.id === pointId);
+    if (!point) {
+      console.error('Park noktası bulunamadı:', pointId);
+      throw new Error('Park noktası bulunamadı');
+    }
+
+    console.log('Rapor edilecek nokta:', point);
+
+    const requestBody = {
+      userId: point.userId,
+      latitude: point.coordinate.latitude,
+      longitude: point.coordinate.longitude,
+      reportType: type === 'parked' ? 0 : 1,
+      streetName: point.streetName
+    };
+
+    console.log('API isteği gönderiliyor:', {
+      url: `${API_URL}/api/park-reports`,
+      method: 'POST',
+      body: requestBody
+    });
+
+    const response = await fetch(`${API_URL}/api/park-reports`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ type }),
+      body: JSON.stringify(requestBody),
+    });
+
+    console.log('API yanıtı:', {
+      status: response.status,
+      ok: response.ok
     });
 
     if (!response.ok) {
-      throw new Error('Park noktası raporlanırken hata oluştu');
+      const errorData = await response.json();
+      console.error('API hata yanıtı:', errorData);
+      throw new Error('Park noktası raporlanırken hata oluştu: ' + (errorData.details || errorData.error));
     }
+
+    const responseData = await response.json();
+    console.log('API başarılı yanıt:', responseData);
+
+    // Başarılı olursa noktayı listeden kaldır
+    parkPoints = parkPoints.filter(p => p.id !== pointId);
+    testParkPoints = testParkPoints.filter(p => p.id !== pointId);
+    console.log('Nokta listeden kaldırıldı. Kalan noktalar:', parkPoints.length);
   } catch (error) {
     console.error('Park noktası raporlama hatası:', error);
     throw error;

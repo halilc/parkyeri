@@ -37,6 +37,7 @@ export interface ParkPoint {
   remainingTime: number;
   parkedCount?: number;
   wrongLocationCount?: number;
+  streetName: string;
 }
 
 export interface ParkingStreet {
