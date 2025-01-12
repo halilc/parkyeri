@@ -5,6 +5,7 @@ import * as Location from 'expo-location';
 import { useMapContext } from '../../context/MapContext';
 import { getNearbyStreets, getParkPoints, reportParkPoint } from '../../services/api';
 import { ParkingStreet } from '../../types';
+import izmirParkingLots from '../../../assets/izmir.json';
 
 interface MapProps {
   mapRef: React.RefObject<MapView>;
@@ -31,6 +32,19 @@ interface ParkPoint {
   remainingTime?: number;
   parkedCount: number;
   wrongLocationCount: number;
+}
+
+interface ParkingLot {
+  name: string;
+  lat: number;
+  lng: number;
+  isPaid: boolean;
+  occupancy: {
+    total: {
+      free: number;
+      occupied: number;
+    };
+  };
 }
 
 // Modal bileşeni
@@ -274,6 +288,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
+  parkingLotMarkerContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 5,
+    borderWidth: 2,
+  },
+  parkingLotMarkerText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
 });
 
 export const Map: React.FC<MapProps> = ({ mapRef, onRegionChange, onDeletePoint }) => {
@@ -476,6 +502,44 @@ export const Map: React.FC<MapProps> = ({ mapRef, onRegionChange, onDeletePoint 
     );
   };
 
+  // Otopark marker render fonksiyonu
+  const renderParkingLotMarker = (parkingLot: ParkingLot) => {
+    const totalSpots = parkingLot.occupancy.total.free + parkingLot.occupancy.total.occupied;
+    const occupancyPercentage = Math.round((parkingLot.occupancy.total.occupied / totalSpots) * 100);
+    
+    return (
+      <Marker
+        key={`parking-lot-${parkingLot.lat}-${parkingLot.lng}`}
+        coordinate={{
+          latitude: parkingLot.lat,
+          longitude: parkingLot.lng,
+        }}
+        onPress={() => {
+          Alert.alert(
+            parkingLot.name,
+            `Durum: ${parkingLot.isPaid ? 'Ücretli' : 'Ücretsiz'}\n` +
+            `Boş Park Yeri: ${parkingLot.occupancy.total.free}\n` +
+            `Dolu Park Yeri: ${parkingLot.occupancy.total.occupied}\n` +
+            `Doluluk Oranı: %${occupancyPercentage}`
+          );
+        }}
+      >
+        <View style={[
+          styles.markerContainer,
+          { 
+            backgroundColor: parkingLot.occupancy.total.free > 0 ? 'white' : '#f0f0f0',
+            borderRadius: 20,
+            padding: 5,
+          }
+        ]}>
+          <Text style={{ fontSize: 30 }}>
+            {parkingLot.isPaid ? '🅿️💰' : '🅿️✅'}
+          </Text>
+        </View>
+      </Marker>
+    );
+  };
+
   return (
     <>
       <MapView
@@ -531,6 +595,9 @@ export const Map: React.FC<MapProps> = ({ mapRef, onRegionChange, onDeletePoint 
         ))}
 
         {parkPoints?.map(renderMarker)}
+        
+        {/* İzmir otopark noktaları */}
+        {izmirParkingLots.map(renderParkingLotMarker)}
       </MapView>
 
       <ParkModal
