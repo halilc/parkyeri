@@ -95,13 +95,17 @@ export async function getNearbyStreets(location: { latitude: number; longitude: 
           const tags = element.tags || {};
           
           if (tags.highway === 'primary' || tags.highway === 'trunk') {
-            probability = 0.2; // Ana yollar
-          } else if (tags.highway === 'secondary') {
-            probability = 0.4; // İkincil yollar
-          } else if (tags.highway === 'tertiary') {
-            probability = 0.6; // Üçüncül yollar
-          } else if (tags.highway === 'residential') {
-            probability = 0.8; // Mahalle içi yollar
+            probability = 0.2; // Ana yollar her zaman kırmızı (düşük olasılık)
+          } else {
+            // Diğer yollar için rastgele renk ataması
+            const random = Math.random();
+            if (random < 0.4) { // %40 olasılıkla yeşil
+              probability = 0.8;
+            } else if (random < 0.7) { // %30 olasılıkla sarı
+              probability = 0.5;
+            } else { // %30 olasılıkla kırmızı
+              probability = 0.2;
+            }
           }
 
           // Her yol segmentini ayrı bir sokak olarak ekle
@@ -130,9 +134,19 @@ function generateRandomParkPoints(streets: ParkingStreet[]): ParkPoint[] {
   const points: ParkPoint[] = [];
   const now = Date.now();
 
-  // Her sokak için %30 olasılıkla park yeri oluştur
   streets.forEach(street => {
-    if (Math.random() < 0.3) {
+    // Park olasılığına göre nokta oluşturma şansını belirle
+    let chanceToCreatePoint;
+    
+    if (street.parkingProbability <= 0.2) { // Kırmızı sokaklar
+      chanceToCreatePoint = 0.05; // Çok düşük olasılık (%5)
+    } else if (street.parkingProbability <= 0.5) { // Sarı sokaklar
+      chanceToCreatePoint = 0.2; // Orta olasılık (%20)
+    } else { // Yeşil sokaklar
+      chanceToCreatePoint = 0.3; // Yüksek olasılık (%30)
+    }
+    
+    if (Math.random() < chanceToCreatePoint) {
       const coordinates = street.coordinates;
       // Sokağın başlangıç ve bitiş noktaları arasında rastgele bir nokta seç
       const t = Math.random(); // 0 ile 1 arasında
