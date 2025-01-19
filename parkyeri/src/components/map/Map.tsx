@@ -3,7 +3,7 @@ import { View, Text, Platform, TouchableOpacity, Alert, ActivityIndicator, Image
 import MapView, { Marker, Callout, Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useMapContext } from '../../context/MapContext';
-import { getNearbyStreets, getParkPoints, reportParkPoint } from '../../services/api';
+import { getNearbyStreets, getParkPoints, reportParkPoint, addUserParkPoint } from '../../services/api';
 import { ParkingStreet } from '../../types';
 import izmirParkingLots from '../../../assets/izmir.json';
 
@@ -300,7 +300,45 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  parkButton: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    backgroundColor: '#4CAF50',
+    padding: 15,
+    borderRadius: 8,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  parkButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  userParkMarkerContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
+
+// İki nokta arasındaki mesafeyi hesaplayan fonksiyon (metre cinsinden)
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const R = 6371e3; // Dünya'nın yarıçapı (metre cinsinden)
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) *
+    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c; // metre cinsinden mesafe
+};
 
 export const Map: React.FC<MapProps> = ({ mapRef, onRegionChange, onDeletePoint }) => {
   const { region, setRegion, parkPoints, setParkPoints: updateParkPoints, parkingStreets, setParkingStreets, user, setUser } = useMapContext();
@@ -484,19 +522,80 @@ export const Map: React.FC<MapProps> = ({ mapRef, onRegionChange, onDeletePoint 
     }
   };
 
+  // Kullanıcının park ettiği yerleri işaretleme
+  const handleUserParking = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Hata', 'Konum izni gerekli');
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({});
+      await addUserParkPoint(user?.id || 'default', {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude
+      });
+
+      Alert.alert('Başarılı', 'Park yeriniz kaydedildi');
+      
+      // Park noktalarını güncelle
+      const points = await getParkPoints({
+        latitude: currentRegion.latitude,
+        longitude: currentRegion.longitude,
+      });
+      updateParkPoints(points);
+    } catch (error) {
+      console.error('Park yeri kaydedilirken hata:', error);
+      Alert.alert('Hata', 'Park yeri kaydedilemedi');
+    }
+  };
+
   // Marker render fonksiyonu
   const renderMarker = (point: ParkPoint) => {
+    const isUserParked = point.userId !== 'system';
+    
     return (
       <Marker
         key={point.id}
         coordinate={point.coordinate}
-        onPress={() => {
+        onPress={async () => {
           console.log('Marker tıklandı:', point);
-          setSelectedPoint(point);
+          if (!isUserParked) {
+            try {
+              // Kullanıcının mevcut konumunu al
+              const { status } = await Location.requestForegroundPermissionsAsync();
+              if (status !== 'granted') {
+                Alert.alert('Hata', 'Konum izni gerekli');
+                return;
+              }
+
+              const location = await Location.getCurrentPositionAsync({});
+              const distance = calculateDistance(
+                location.coords.latitude,
+                location.coords.longitude,
+                point.coordinate.latitude,
+                point.coordinate.longitude
+              );
+
+              console.log('Park noktasına uzaklık:', distance, 'metre');
+
+              if (distance <= 50) {
+                setSelectedPoint(point);
+              } else {
+                Alert.alert('Hata', 'Park noktası konum dışında. Park noktasına 50 metre yakın olmalısınız.');
+              }
+            } catch (error) {
+              console.error('Konum alınırken hata:', error);
+              Alert.alert('Hata', 'Konum bilgisi alınamadı');
+            }
+          }
         }}
       >
         <View style={styles.markerContainer}>
-          <Text style={{ fontSize: 30 }}>🅿️</Text>
+          <Text style={{ fontSize: 30 }}>
+            {isUserParked ? '🚗' : '🅿️'}
+          </Text>
         </View>
       </Marker>
     );
@@ -670,6 +769,13 @@ export const Map: React.FC<MapProps> = ({ mapRef, onRegionChange, onDeletePoint 
           </TouchableOpacity>
         </View>
       )}
+
+      <TouchableOpacity
+        style={styles.parkButton}
+        onPress={handleUserParking}
+      >
+        <Text style={styles.parkButtonText}>Park Ettim</Text>
+      </TouchableOpacity>
     </>
   );
 }; 

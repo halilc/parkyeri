@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 
-const API_URL = 'http://192.168.1.103:3000';
+const API_URL = 'http://192.168.1.104:3000';
 const GOOGLE_MAPS_API_KEY = Constants.expoConfig?.extra?.googleMapsApiKey || 'YOUR_API_KEY';
 
 export interface ParkPoint {
@@ -340,6 +340,60 @@ export const reportParkPoint = async (pointId: string, type: 'parked' | 'wrong_l
     return parkPoints;
   } catch (error) {
     console.error('Park noktası raporlama hatası:', error);
+    throw error;
+  }
+};
+
+// Kullanıcının park ettiği yeri kaydet
+export const addUserParkPoint = async (userId: string, location: { latitude: number; longitude: number }): Promise<void> => {
+  try {
+    console.log('Park yeri MongoDB\'ye kaydediliyor:', { userId, location });
+
+    const requestBody = {
+      userId,
+      location: {
+        latitude: location.latitude,
+        longitude: location.longitude
+      },
+      timestamp: new Date().toISOString()
+    };
+
+    const response = await fetch(`${API_URL}/api/user-parks`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    const responseText = await response.text();
+    console.log('API yanıtı:', responseText);
+
+    if (!response.ok) {
+      throw new Error(`Park yeri kaydedilirken hata oluştu: ${response.status} - ${responseText}`);
+    }
+
+    // Yerel gösterim için park noktası oluştur
+    const newParkPoint: ParkPoint = {
+      id: `user-park-${Math.random().toString(36).substring(7)}`,
+      userId: userId,
+      coordinate: {
+        latitude: location.latitude,
+        longitude: location.longitude
+      },
+      streetName: 'Kullanıcı Park Yeri',
+      remainingTime: 60,
+      parkedCount: 0,
+      wrongLocationCount: 0
+    };
+
+    // Park noktasını yerel listeye ekle
+    testParkPoints.push(newParkPoint);
+    parkPoints.push(newParkPoint);
+
+    console.log('Park yeri başarıyla kaydedildi:', newParkPoint);
+  } catch (error) {
+    console.error('Park yeri kaydetme hatası:', error);
     throw error;
   }
 }; 

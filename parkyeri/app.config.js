@@ -1,6 +1,6 @@
 export default {
   expo: {
-    name: "parkyeri",
+    name: "Park Yeri",
     slug: "parkyeri",
     version: "1.0.0",
     orientation: "portrait",
@@ -16,10 +16,7 @@ export default {
     ],
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.parkyeri.app",
-      config: {
-        googleMapsApiKey: "YOUR_IOS_API_KEY"
-      }
+      bundleIdentifier: "com.parkyeri.app"
     },
     android: {
       adaptiveIcon: {
@@ -27,6 +24,11 @@ export default {
         backgroundColor: "#ffffff"
       },
       package: "com.parkyeri.app",
+      permissions: [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION"
+      ],
       config: {
         googleMaps: {
           apiKey: "YOUR_ANDROID_API_KEY"
@@ -37,7 +39,9 @@ export default {
       favicon: "./assets/favicon.png"
     },
     extra: {
-      googleMapsApiKey: "YOUR_WEB_API_KEY"
+      eas: {
+        projectId: "your-project-id"
+      }
     }
   }
 } 
